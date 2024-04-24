@@ -103,6 +103,7 @@ class csPCaAlgorithm(SegmentationAlgorithm):
             "/input/images/transverse-hbv-prostate-mri",
         ]
         self.scan_paths = []
+        self.clinical_information_path = Path("/input/clinical-information-prostate-mri.json")
         self.cspca_detection_map_path = Path("/output/images/cspca-detection-map/cspca_detection_map.mha")
         self.case_confidence_path = Path("/output/cspca-case-level-likelihood.json")
 
@@ -127,6 +128,22 @@ class csPCaAlgorithm(SegmentationAlgorithm):
             else:
                 # append scan path to algorithm input paths
                 self.scan_paths += [file_paths[0]]
+
+        # load clinical information
+        with open(self.clinical_information_path) as fp:
+            self.clinical_info = json.load(fp)
+
+        # extract available clinical metadata (not used for this example)
+        self.age = self.clinical_info["patient_age"]
+        self.psa = self.clinical_info["PSA_report"]
+        self.psad = self.clinical_info["PSAD_report"]
+        self.prostate_volume = self.clinical_info["prostate_volume_report"]
+
+        # extract available acquisition metadata (not used for this example)
+        self.scanner_manufacturer = self.clinical_info["scanner_manufacturer"]
+        self.scanner_model_name = self.clinical_info["scanner_model_name"]
+        self.diffusion_high_bvalue = self.clinical_info["diffusion_high_bvalue"]
+
 
     def preprocess_input(self):
         """Preprocess input images to nnUNet Raw Data Archive format"""
@@ -204,9 +221,11 @@ class csPCaAlgorithm(SegmentationAlgorithm):
         # save prediction to output folder
         atomic_image_write(detection_map, str(self.cspca_detection_map_path))
 
+        case_confidence = float(np.max(sitk.GetArrayFromImage(detection_map)))
+
         # save case-level likelihood
         with open(self.case_confidence_path, 'w') as fp:
-            json.dump(float(np.max(sitk.GetArrayFromImage(detection_map))), fp)
+            json.dump(case_confidence, fp)
 
     def predict(self, task, trainer="nnUNetTrainerV2", network="3d_fullres",
                 checkpoint="model_final_checkpoint", folds="0,1,2,3,4", store_probability_maps=True,
