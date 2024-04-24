@@ -4,7 +4,7 @@
 #SBATCH -J train
 #SBATCH --partition gpu
 #SBATCH -N 1
-#SBATCH -t 24:00
+#SBATCH -t 120:00:00
 #SBATCH --ntasks 1
 #SBATCH --cpus-per-task 16
 #SBATCH --gpus 1
