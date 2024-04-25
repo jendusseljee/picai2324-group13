@@ -42,4 +42,5 @@ echo "Done!"
 
 
 echo "Copying data back to home"
+mkdir -p $HOME/picai_2324/output/UNet/
 cp -r $TMPDIR/workdir/results/UNet/weights/ $HOME/picai_2324/output/UNet/weights/
