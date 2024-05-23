@@ -13,6 +13,7 @@
 #  limitations under the License.
 
 from picai_baseline.unet.training_setup.neural_networks.unets import UNet
+from picai_baseline.unet.training_setup.neural_networks.vnet import VNet
 
 
 def neural_network_for_run(args, device):
@@ -25,6 +26,12 @@ def neural_network_for_run(args, device):
             out_channels=args.num_classes,
             strides=args.model_strides,
             channels=args.model_features
+        )
+    elif args.model_type == 'vnet':
+        model = VNet(
+            spatial_dims=len(args.image_shape),
+            in_channels=args.num_channels,
+            out_channels=args.num_classes,
         )
     else:
         raise ValueError(f"Unknown model type: {args.model_type}")
