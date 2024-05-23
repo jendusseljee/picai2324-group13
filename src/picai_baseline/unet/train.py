@@ -26,6 +26,7 @@ from picai_baseline.unet.training_setup.data_generator import prepare_datagens
 from picai_baseline.unet.training_setup.default_hyperparam import \
     get_default_hyperparams
 from picai_baseline.unet.training_setup.loss_functions.focal import FocalLoss
+from picai_baseline.unet.training_setup.loss_functions.focal_tversky import FocalTverskyLoss
 from picai_baseline.unet.training_setup.neural_network_selector import \
     neural_network_for_run
 from torch.utils.tensorboard import SummaryWriter
@@ -81,6 +82,11 @@ def main():
     parser.add_argument('--use_def_model_hp', type=int, default=1,                                                         
                         help="Use default set of model-specific hyperparameters")
 
+
+    # Added arguments
+    parser.add_argument('--loss_function', type=str, default='focal',
+                        help="Loss ")
+
     args = parser.parse_args()
     args.model_strides = ast.literal_eval(args.model_strides)
     args.model_features = ast.literal_eval(args.model_features)
@@ -112,7 +118,14 @@ def main():
         model = neural_network_for_run(args=args, device=device)
 
         # loss function + optimizer
-        loss_func = FocalLoss(alpha=class_weights[-1], gamma=args.focal_loss_gamma).to(device)
+        if args.loss_function == 'focal':
+            loss_func = FocalLoss(alpha=class_weights[-1], gamma=args.focal_loss_gamma).to(device)
+        elif args.loss_function == 'focal-tversky':
+            loss_func = FocalTverskyLoss(alpha=class_weights[-1], beta=class_weights[-2], gamma=args.focal_loss_gamma).to(device)
+        else:
+            raise ValueError(f"Unknown model type: {args.loss_function}")
+
+
         optimizer = torch.optim.Adam(params=model.parameters(), lr=args.base_lr, amsgrad=True)
         # --------------------------------------------------------------------------------------------------------------------------
         # training loop
