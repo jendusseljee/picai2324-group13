@@ -149,3 +149,8 @@ workdir
 input
 slurm-logs
 runs
+*.pt
+*.xlsx
+
+# Added by Thijs
+workdir-nn
