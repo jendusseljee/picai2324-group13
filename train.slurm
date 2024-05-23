@@ -1,15 +1,15 @@
 #!/bin/bash
 
 #Set job requirements
-#SBATCH -J train
+#SBATCH -J train_ft
 #SBATCH --partition gpu
 #SBATCH -N 1
-#SBATCH -t 120:00:00
+#SBATCH -t 24:00:00
 #SBATCH --ntasks 1
 #SBATCH --cpus-per-task 16
 #SBATCH --gpus 1
 #SBATCH --mem 40G
-#SBATCH --output slurm-logs/train-%j.out
+#SBATCH --output slurm-logs/train_ft-%j.out
 
 module load 2023
 module load py
@@ -31,10 +31,11 @@ python replace_paths_in_overview.py \
 echo "Done replacing paths!"
 
 export PYTHONPATH=$PYTHONPATH:$HOME/picai_2324/src
+EXPERIMENT=UnetFocalTversty
 
 echo "Training unet"
 python -u src/picai_baseline/unet/train.py \
-  --weights_dir=$TMPDIR/workdir/results/UNet/weights/ \
+  --weights_dir=$TMPDIR/workdir/results/$EXPERIMENT/weights/ \
   --overviews_dir=$TMPDIR/workdir/results/UNet/overviews/Task2203_picai_baseline \
   --folds 0 --max_threads 6 --enable_da 1 --num_epochs 250 \
   --validate_n_epochs 1 --validate_min_epoch 0 \
@@ -43,5 +44,5 @@ echo "Done!"
 
 
 echo "Copying data back to home"
-mkdir -p $HOME/picai_2324/output/UNet/
-cp -r $TMPDIR/workdir/results/UNet/weights/ $HOME/picai_2324/output/UNet/weights/
+mkdir -p $HOME/picai_2324/output/$EXPERIMENT/
+cp -r $TMPDIR/workdir/results/$EXPERIMENT/weights/ $HOME/picai_2324/output/$EXPERIMENT/weights/

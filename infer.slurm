@@ -4,7 +4,7 @@
 #SBATCH -J infer
 #SBATCH --partition gpu_mig
 #SBATCH -N 1
-#SBATCH -t 120:00:00
+#SBATCH -t 4:00:00
 #SBATCH --ntasks 1
 #SBATCH --cpus-per-task 8
 #SBATCH --gpus 1
