@@ -19,10 +19,14 @@ from pathlib import Path
 import monai
 import numpy as np
 import torch
+import pandas as pd
 from batchgenerators.dataloading.data_loader import DataLoader
 from monai.transforms import Compose, EnsureType
 
 from picai_baseline.unet.training_setup.image_reader import SimpleITKDataset
+
+
+CLINICAL_FEATURES = ['patient_age', 'psa', 'psad', 'prostate_volume']
 
 
 def default_collate(batch):
@@ -53,21 +57,28 @@ class DataLoaderFromDataset(DataLoader):
     """Create dataloader from given dataset"""
 
     def __init__(self, data, batch_size, num_threads, seed_for_shuffle=1, collate_fn=default_collate,
-                 return_incomplete=False, shuffle=True, infinite=False):
+                 return_incomplete=False, shuffle=True, infinite=False, clinical=None):
         super(DataLoaderFromDataset, self).__init__(data, batch_size, num_threads, seed_for_shuffle,
                                                     return_incomplete=return_incomplete, shuffle=shuffle,
                                                     infinite=infinite)
         self.collate_fn = collate_fn
         self.indices = np.arange(len(data))
+        self.clinical = clinical
 
     def generate_train_batch(self):
 
         # randomly select N samples (N = batch size)
         indices = self.get_indices()
 
+
         # create dictionary per sample
-        batch = [{'data': self._data[i][0].numpy(),
-                  'seg': self._data[i][1].numpy()} for i in indices]
+        if self.clinical is None:
+            batch = [{'data': self._data[i][0].numpy(),
+                      'seg': self._data[i][1].numpy()} for i in indices]
+        else:
+            batch = [{'data': self._data[i][0].numpy(),
+                      'clinical': np.array(self.clinical[i], dtype='float32'),
+                      'seg': self._data[i][1].numpy()} for i in indices]
 
         return self.collate_fn(batch)
 
@@ -84,6 +95,12 @@ def prepare_datagens(args, fold_id):
     # load paths to images and labels
     train_data = [np.array(train_json['image_paths']), np.array(train_json['label_paths'])]
     valid_data = [np.array(valid_json['image_paths']), np.array(valid_json['label_paths'])]
+
+    # Turn clinical data into numpy array
+    clinical = None
+    if args.marksheet is not None:
+        marksheet = pd.read_csv(args.marksheet)
+        clinical = [np.array(marksheet[marksheet['study_id'] == int(f[0].split('.')[-3].split('_')[-2])][CLINICAL_FEATURES]) for f in train_data[0]]
 
     # use case-level class balance to deduce required train-time class weights
     class_ratio_t = [int(np.sum(train_json['case_label'])), int(len(train_data[0])-np.sum(train_json['case_label']))]
@@ -104,7 +121,7 @@ def prepare_datagens(args, fold_id):
                                 seg_files=train_data[1][:args.batch_size*2],
                                 transform=Compose(pretx),
                                 seg_transform=Compose(pretx))
-    check_loader = DataLoaderFromDataset(check_ds, batch_size=args.batch_size, num_threads=args.num_threads)
+    check_loader = DataLoaderFromDataset(check_ds, batch_size=args.batch_size, num_threads=args.num_threads, clinical=clinical)
     data_pair = monai.utils.misc.first(check_loader)
     print('DataLoader - Image Shape: ', data_pair['data'].shape)
     print('DataLoader - Label Shape: ', data_pair['seg'].shape)
@@ -120,8 +137,8 @@ def prepare_datagens(args, fold_id):
     valid_ds = SimpleITKDataset(image_files=valid_data[0], seg_files=valid_data[1],
                                 transform=Compose(pretx),  seg_transform=Compose(pretx))
     train_ldr = DataLoaderFromDataset(train_ds, 
-        batch_size=args.batch_size, num_threads=args.num_threads, infinite=True, shuffle=True)
+        batch_size=args.batch_size, num_threads=args.num_threads, infinite=True, shuffle=True, clinical=clinical)
     valid_ldr = DataLoaderFromDataset(valid_ds, 
-        batch_size=args.batch_size, num_threads=args.num_threads, infinite=False, shuffle=False)
+        batch_size=args.batch_size, num_threads=args.num_threads, infinite=False, shuffle=False, clinical=clinical)
 
     return train_ldr, valid_ldr, class_weights.astype(np.float32)

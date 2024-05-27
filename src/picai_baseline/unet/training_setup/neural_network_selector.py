@@ -14,6 +14,7 @@
 
 from picai_baseline.unet.training_setup.neural_networks.unets import UNet
 from picai_baseline.unet.training_setup.neural_networks.vnet import VNet
+from picai_baseline.unet.training_setup.neural_networks.unet_daft import UNetDAFT
 
 
 def neural_network_for_run(args, device):
@@ -26,6 +27,15 @@ def neural_network_for_run(args, device):
             out_channels=args.num_classes,
             strides=args.model_strides,
             channels=args.model_features
+        )
+    elif args.model_type == 'unet-daft':
+        model = UNetDAFT(
+            spatial_dims=len(args.image_shape),
+            in_channels=args.num_channels,
+            out_channels=args.num_classes,
+            strides=args.model_strides,
+            channels=args.model_features,
+            num_tab_features=4,
         )
     elif args.model_type == 'vnet':
         model = VNet(

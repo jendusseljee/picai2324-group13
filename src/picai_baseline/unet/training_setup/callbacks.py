@@ -100,7 +100,7 @@ def resume_or_restart_training(model, optimizer, device, args, fold_id):
     return model, optimizer, tracking_metrics
 
 
-def optimize_model(model, optimizer, loss_func, train_gen, args, tracking_metrics, device, writer):
+def optimize_model(model, optimizer, loss_func, train_gen, args, tracking_metrics, device, writer, with_clinical=False):
     """Optimize model x N training steps per epoch + update learning rate"""
 
     train_loss, step = 0,  0
@@ -110,12 +110,23 @@ def optimize_model(model, optimizer, loss_func, train_gen, args, tracking_metric
     # for each mini-batch or optimization step
     for batch_data in train_gen:
         step += 1
-        try:
-            inputs = batch_data['data'].to(device)
-            labels = batch_data['seg'].to(device)
-        except Exception:
-            inputs = torch.from_numpy(batch_data['data']).to(device)
-            labels = torch.from_numpy(batch_data['seg']).to(device)
+        if with_clinical:
+            try:
+                inputs = batch_data['data'].to(device)
+                clinical = torch.from_numpy(batch_data['clinical']).to(device)
+                labels = batch_data['seg'].to(device)
+            except Exception:
+                inputs = torch.from_numpy(batch_data['data']).to(device)
+                clinical = torch.from_numpy(batch_data['clinical']).to(device)
+                labels = torch.from_numpy(batch_data['seg']).to(device)
+        else:
+            try:
+                inputs = batch_data['data'].to(device)
+                labels = batch_data['seg'].to(device)
+            except Exception:
+                inputs = torch.from_numpy(batch_data['data']).to(device)
+                labels = torch.from_numpy(batch_data['seg']).to(device)
+
 
         # bugfix for shape of targets
         if labels.shape[1] == 1:
@@ -125,7 +136,10 @@ def optimize_model(model, optimizer, loss_func, train_gen, args, tracking_metric
             # reshape to (B, C, D, H, W)
             labels = labels.permute(0, 4, 1, 2, 3).contiguous()
 
-        outputs = model(inputs)
+        if with_clinical:
+            outputs = model(inputs, clinical)
+        else:
+            outputs = model(inputs)
         loss = loss_func(outputs, labels)
         train_loss += loss.item()
 
@@ -154,7 +168,7 @@ def optimize_model(model, optimizer, loss_func, train_gen, args, tracking_metric
     return model, optimizer, train_gen, tracking_metrics, writer
 
 
-def validate_model(model, optimizer, valid_gen, args, tracking_metrics, device, writer):
+def validate_model(model, optimizer, valid_gen, args, tracking_metrics, device, writer, with_clinical=False):
     """Validate model per N epoch + export model weights"""
 
     epoch, f = tracking_metrics['epoch'], tracking_metrics['fold_id']
@@ -163,12 +177,22 @@ def validate_model(model, optimizer, valid_gen, args, tracking_metrics, device, 
     lesion_results = []
     for valid_data in valid_gen:
 
-        try:
-            valid_images = valid_data['data'].to(device)
-            valid_labels = valid_data['seg']
-        except Exception:
-            valid_images = torch.from_numpy(valid_data['data']).to(device)
-            valid_labels = valid_data['seg']
+        if with_clinical:
+            try:
+                valid_images = valid_data['data'].to(device)
+                valid_clinical = valid_data['clinical'].to(device)
+                valid_labels = valid_data['seg']
+            except Exception:
+                valid_images = torch.from_numpy(valid_data['data']).to(device)
+                valid_clinical = torch.from_numpy(valid_data['clinical']).to(device)
+                valid_labels = valid_data['seg']
+        else:
+            try:
+                valid_images = valid_data['data'].to(device)
+                valid_labels = valid_data['seg']
+            except Exception:
+                valid_images = torch.from_numpy(valid_data['data']).to(device)
+                valid_labels = valid_data['seg']
 
         # test-time augmentation
         valid_images = [valid_images, torch.flip(valid_images, [4]).to(device)]
@@ -176,10 +200,16 @@ def validate_model(model, optimizer, valid_gen, args, tracking_metrics, device, 
         # aggregate all validation predictions
         # gaussian blur to counteract checkerboard artifacts in
         # predictions from the use of transposed conv. in the U-Net
-        preds = [
-            torch.sigmoid(model(x))[:, 1, ...].detach().cpu().numpy()
-            for x in valid_images
-        ]
+        if with_clinical:
+            preds = [
+                torch.sigmoid(model(x, valid_clinical))[:, 1, ...].detach().cpu().numpy()
+                for x in valid_images
+            ]
+        else:
+            preds = [
+                torch.sigmoid(model(x))[:, 1, ...].detach().cpu().numpy()
+                for x in valid_images
+            ]
 
         # revert horizontally flipped tta image
         preds[1] = np.flip(preds[1], [3])

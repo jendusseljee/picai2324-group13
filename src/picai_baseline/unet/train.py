@@ -86,6 +86,8 @@ def main():
     # Added arguments
     parser.add_argument('--loss_function', type=str, default='focal',
                         help="Loss ")
+    parser.add_argument('--marksheet', type=str,
+                        help="Path to marksheet.csv")
 
     args = parser.parse_args()
     args.model_strides = ast.literal_eval(args.model_strides)
@@ -146,7 +148,7 @@ def main():
 
             model, optimizer, train_gen, tracking_metrics, writer = optimize_model(
                 model=model, optimizer=optimizer, loss_func=loss_func, train_gen=train_gen,
-                args=args, tracking_metrics=tracking_metrics, device=device, writer=writer
+                args=args, tracking_metrics=tracking_metrics, device=device, writer=writer, with_clinical=(args.marksheet is not None)
             )
 
             # ----------------------------------------------------------------------------------------------------------------------
@@ -159,7 +161,7 @@ def main():
 
                     model, optimizer, valid_gen, tracking_metrics, writer = validate_model(
                         model=model, optimizer=optimizer, valid_gen=valid_gen, args=args,
-                        tracking_metrics=tracking_metrics, device=device, writer=writer
+                        tracking_metrics=tracking_metrics, device=device, writer=writer, with_clinical=(args.marksheet is not None)
                     )
 
         # --------------------------------------------------------------------------------------------------------------------------
