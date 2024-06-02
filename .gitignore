@@ -151,6 +151,9 @@ slurm-logs
 runs
 *.pt
 *.xlsx
+test_files
+outputs/**/*.npy
+outputs/**/*.nii.gz
 
 # Added by Thijs
 workdir-nn
