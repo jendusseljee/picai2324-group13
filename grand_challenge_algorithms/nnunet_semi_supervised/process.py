@@ -223,6 +223,15 @@ class csPCaAlgorithm(SegmentationAlgorithm):
 
         case_confidence = float(np.max(sitk.GetArrayFromImage(detection_map)))
 
+        if self.psa < 2.2:
+            case_confidence = 0
+        if self.psad < 0.04:
+            case_confidence = 0
+        if self.prostate_volume > 200.0:
+            case_confidence = 0
+
+        
+
         # save case-level likelihood
         with open(self.case_confidence_path, 'w') as fp:
             json.dump(case_confidence, fp)
